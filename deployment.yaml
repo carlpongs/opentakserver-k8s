@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: opentakserver
+  namespace: opentakserver
+  labels:
+    app: opentakserver
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: opentakserver
+  template:
+    metadata:
+      labels:
+        app: opentakserver
+    spec:
+      containers:
+        # PostgreSQL database (sidecar - shares localhost with OTS)
+        - name: postgres
+          image: postgres:16-alpine
+          env:
+            - name: POSTGRES_DB
+              value: ots
+            - name: POSTGRES_USER
+              value: ots
+            - name: POSTGRES_PASSWORD
+              value: ots
+          ports:
+            - containerPort: 5432
+          volumeMounts:
+            - name: pg-data
+              mountPath: /var/lib/postgresql/data
+              subPath: pgdata
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+
+        # RabbitMQ message broker (sidecar - shares localhost with OTS)
+        - name: rabbitmq
+          image: rabbitmq:3-alpine
+          ports:
+            - containerPort: 5672
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "500m"
+
+        # OpenTAK Server
+        - name: opentakserver
+          image: ghcr.io/brian7704/opentakserver:1.7.7
+          env:
+            # Bind to all interfaces so K8s service can route to it
+            - name: OTS_LISTENER_ADDRESS
+              value: "0.0.0.0"
+          ports:
+            # Web UI / API
+            - containerPort: 8081
+              name: api
+            # HTTPS (Marti)
+            - containerPort: 8443
+              name: https
+            # Certificate enrollment
+            - containerPort: 8446
+              name: cert-enroll
+            # TCP streaming (CoT)
+            - containerPort: 8088
+              name: tcp-cot
+            # SSL streaming (CoT)
+            - containerPort: 8089
+              name: ssl-cot
+          volumeMounts:
+            - name: ots-data
+              mountPath: /app/ots
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+
+      volumes:
+        - name: ots-data
+          persistentVolumeClaim:
+            claimName: ots-data
+        - name: pg-data
+          persistentVolumeClaim:
+            claimName: pg-data
