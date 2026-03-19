@@ -15,8 +15,17 @@ spec:
       labels:
         app: opentakserver
     spec:
+      # Init container: copy UI static files from the OTS-UI image into shared volume
+      initContainers:
+        - name: copy-ui
+          image: ghcr.io/brian7704/opentakserver-ui:master
+          command: ["sh", "-c", "cp -r /usr/share/nginx/html/* /webui/ 2>/dev/null || cp -r /* /webui/ 2>/dev/null || echo 'copy done'"]
+          volumeMounts:
+            - name: webui-files
+              mountPath: /webui
+
       containers:
-        # PostgreSQL database (sidecar - shares localhost with OTS)
+        # PostgreSQL database (sidecar)
         - name: postgres
           image: postgres:16-alpine
           env:
@@ -40,7 +49,7 @@ spec:
               memory: "512Mi"
               cpu: "500m"
 
-        # RabbitMQ message broker (sidecar - shares localhost with OTS)
+        # RabbitMQ message broker (sidecar)
         - name: rabbitmq
           image: rabbitmq:3-alpine
           ports:
@@ -53,27 +62,44 @@ spec:
               memory: "256Mi"
               cpu: "500m"
 
-        # OpenTAK Server
+        # Nginx — serves UI files + proxies /api to OTS backend
+        - name: nginx
+          image: nginx:alpine
+          ports:
+            - containerPort: 80
+              name: web-ui
+          volumeMounts:
+            - name: webui-files
+              mountPath: /usr/share/nginx/html
+              readOnly: true
+            - name: nginx-conf
+              mountPath: /etc/nginx/conf.d
+              readOnly: true
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "250m"
+
+        # OpenTAK Server backend
         - name: opentakserver
           image: ghcr.io/brian7704/opentakserver:1.7.7
           env:
-            # Bind to all interfaces so K8s service can route to it
             - name: OTS_LISTENER_ADDRESS
               value: "0.0.0.0"
+            - name: SECURITY_REGISTERABLE
+              value: "true"
           ports:
-            # Web UI / API
             - containerPort: 8081
               name: api
-            # HTTPS (Marti)
             - containerPort: 8443
               name: https
-            # Certificate enrollment
             - containerPort: 8446
               name: cert-enroll
-            # TCP streaming (CoT)
             - containerPort: 8088
               name: tcp-cot
-            # SSL streaming (CoT)
             - containerPort: 8089
               name: ssl-cot
           volumeMounts:
@@ -94,3 +120,8 @@ spec:
         - name: pg-data
           persistentVolumeClaim:
             claimName: pg-data
+        - name: webui-files
+          emptyDir: {}
+        - name: nginx-conf
+          configMap:
+            name: nginx-config
