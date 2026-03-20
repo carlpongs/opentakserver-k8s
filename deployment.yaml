@@ -83,11 +83,12 @@ spec:
               memory: "128Mi"
               cpu: "250m"
 
-        # NOTE: The OTS main process only serves the API (port 8081). The CoT
-        # streaming servers (TCP 8088, SSL 8089) are a SEPARATE binary called
-        # "eud_handler" that must be launched alongside. We start all three in
-        # one container so they share the data volume and cert files.
-        # The eud_handler processes are delayed 30s to let Postgres initialize.
+        # OTS backend + CoT streaming servers (eud_handler)
+        # The main "opentakserver" binary serves the API on port 8081.
+        # The "eud_handler" binary runs the CoT streaming servers:
+        #   - TCP on port 8088 (no certs)
+        #   - SSL on port 8089 (requires .p12 client cert)
+        # Both are delayed 30s to let Postgres initialize.
         - name: opentakserver
           image: ghcr.io/brian7704/opentakserver:1.7.7
           command: ["sh", "-c"]
