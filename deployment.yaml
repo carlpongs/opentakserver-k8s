@@ -28,19 +28,22 @@ spec:
           image: alpine:3.19
           command: ["sh", "-c"]
           args:
-            - |
+             - |
               mkdir -p /app/ots/mediamtx
+              # Copy busybox to shared volume (MediaMTX is distroless - no wget/curl/sh)
+              cp /bin/busybox /app/ots/mediamtx/busybox
               # Always re-download to ensure hooks are set
               wget -q -O /app/ots/mediamtx/mediamtx.yml https://raw.githubusercontent.com/bluenviron/mediamtx/main/mediamtx.yml
               TOKEN="MTX_TOKEN"
               OTS="http://127.0.0.1:8081"
-              # Patch webhook hooks so MediaMTX notifies OTS about streams
+              BB="/app/ots/mediamtx/busybox"
+              # Patch webhook hooks using busybox wget (full path since no PATH in distroless)
               # NOTE: runOnInit is NOT supported on regex paths, so only set runOnReady/runOnNotReady
-              sed -i "s|^  runOnReady:$|  runOnReady: wget -q -O /dev/null \"${OTS}/api/mediamtx/webhook?token=${TOKEN}\&event=ready\&path=\\\$MTX_PATH\&rtsp_port=8554\"|" /app/ots/mediamtx/mediamtx.yml
-              sed -i "s|^  runOnNotReady:$|  runOnNotReady: wget -q -O /dev/null \"${OTS}/api/mediamtx/webhook?token=${TOKEN}\&event=notready\&path=\\\$MTX_PATH\&rtsp_port=8554\"|" /app/ots/mediamtx/mediamtx.yml
+              sed -i "s|^  runOnReady:$|  runOnReady: ${BB} wget -q -O /dev/null \"${OTS}/api/mediamtx/webhook?token=${TOKEN}\&event=ready\&path=\\\$MTX_PATH\&rtsp_port=8554\"|" /app/ots/mediamtx/mediamtx.yml
+              sed -i "s|^  runOnNotReady:$|  runOnNotReady: ${BB} wget -q -O /dev/null \"${OTS}/api/mediamtx/webhook?token=${TOKEN}\&event=notready\&path=\\\$MTX_PATH\&rtsp_port=8554\"|" /app/ots/mediamtx/mediamtx.yml
               # Fix permissions so OTS can set the token at runtime
               chmod -R 777 /app/ots/mediamtx
-              echo 'MediaMTX config ready with hooks'
+              echo 'MediaMTX config ready with hooks and busybox'
           volumeMounts:
             - name: ots-data
               mountPath: /app/ots
