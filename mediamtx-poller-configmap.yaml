@@ -29,7 +29,7 @@ data:
 
     def webhook(event, path, src_type="", src_id=""):
         url = (f"{OTS_API}/api/mediamtx/webhook?token={OTS_TOKEN}&event={event}"
-               f"&path={path}&rtsp_port=8554&source_type={src_type}&source_id={src_id}")
+               f"&path={path}&rtsp_port=8554&source_type={src_type}&source_id={src_id}&query=")
         try:
             req = urllib.request.urlopen(url, timeout=10)
             print(f"[poller] {event} '{path}': {req.status}", flush=True)
