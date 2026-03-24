@@ -30,12 +30,17 @@ spec:
           args:
             - |
               mkdir -p /app/ots/mediamtx
-              if [ ! -f /app/ots/mediamtx/mediamtx.yml ]; then
-                wget -q -O /app/ots/mediamtx/mediamtx.yml https://raw.githubusercontent.com/bluenviron/mediamtx/main/mediamtx.yml
-                echo 'Downloaded mediamtx.yml'
-              else
-                echo 'mediamtx.yml already exists'
-              fi
+              # Always re-download to ensure hooks are set
+              wget -q -O /app/ots/mediamtx/mediamtx.yml https://raw.githubusercontent.com/bluenviron/mediamtx/main/mediamtx.yml
+              TOKEN="MTX_TOKEN"
+              OTS="http://127.0.0.1:8081"
+              # Patch webhook hooks so MediaMTX notifies OTS about streams
+              # NOTE: runOnInit is NOT supported on regex paths, so only set runOnReady/runOnNotReady
+              sed -i "s|^  runOnReady:$|  runOnReady: wget -q -O /dev/null \"${OTS}/api/mediamtx/webhook?token=${TOKEN}\&event=ready\&path=\\\$MTX_PATH\&rtsp_port=8554\"|" /app/ots/mediamtx/mediamtx.yml
+              sed -i "s|^  runOnNotReady:$|  runOnNotReady: wget -q -O /dev/null \"${OTS}/api/mediamtx/webhook?token=${TOKEN}\&event=notready\&path=\\\$MTX_PATH\&rtsp_port=8554\"|" /app/ots/mediamtx/mediamtx.yml
+              # Fix permissions so OTS can set the token at runtime
+              chmod -R 777 /app/ots/mediamtx
+              echo 'MediaMTX config ready with hooks'
           volumeMounts:
             - name: ots-data
               mountPath: /app/ots
