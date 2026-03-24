@@ -10,3 +10,7 @@ Thumbs.db
 
 # Notes (local only)
 notes/
+
+# Temp files
+*.zip
+itak_patch/

@@ -96,6 +96,7 @@ spec:
             - |
               (sleep 30 && /app/venv/bin/eud_handler) &
               (sleep 30 && /app/venv/bin/eud_handler --ssl) &
+              (sleep 30 && /app/venv/bin/cot_parser) &
               exec /app/venv/bin/opentakserver
           env:
             - name: OTS_LISTENER_ADDRESS
