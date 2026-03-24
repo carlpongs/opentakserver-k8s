@@ -15,7 +15,7 @@ spec:
       labels:
         app: opentakserver
     spec:
-      # Init container: copy UI static files from the OTS-UI image into shared volume
+      # Init containers: copy UI files and MediaMTX config into shared volumes
       initContainers:
         - name: copy-ui
           image: ghcr.io/brian7704/opentakserver-ui:master
@@ -23,6 +23,22 @@ spec:
           volumeMounts:
             - name: webui-files
               mountPath: /webui
+
+        - name: init-mediamtx-config
+          image: alpine:3.19
+          command: ["sh", "-c"]
+          args:
+            - |
+              mkdir -p /app/ots/mediamtx
+              if [ ! -f /app/ots/mediamtx/mediamtx.yml ]; then
+                wget -q -O /app/ots/mediamtx/mediamtx.yml https://raw.githubusercontent.com/bluenviron/mediamtx/main/mediamtx.yml
+                echo 'Downloaded mediamtx.yml'
+              else
+                echo 'mediamtx.yml already exists'
+              fi
+          volumeMounts:
+            - name: ots-data
+              mountPath: /app/ots
 
       containers:
         # PostgreSQL database (sidecar)
@@ -124,6 +140,41 @@ spec:
             limits:
               memory: "1Gi"
               cpu: "1000m"
+
+        # MediaMTX — video streaming server (RTMP/RTSP/WebRTC)
+        # OTS communicates with it at localhost:9997 (API)
+        # Phones stream RTMP to the NodePort on 1935
+        - name: mediamtx
+          image: bluenviron/mediamtx:latest
+          args: ["/app/ots/mediamtx/mediamtx.yml"]
+          ports:
+            - containerPort: 1935
+              name: rtmp
+            - containerPort: 8554
+              name: rtsp
+            - containerPort: 8889
+              name: webrtc
+            - containerPort: 9997
+              name: mediamtx-api
+          volumeMounts:
+            - name: ots-data
+              mountPath: /app/ots
+          env:
+            - name: MTX_RTMP
+              value: "yes"
+            - name: MTX_RTSP
+              value: "yes"
+            - name: MTX_WEBRTC
+              value: "yes"
+            - name: MTX_API
+              value: "yes"
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
 
       volumes:
         - name: ots-data

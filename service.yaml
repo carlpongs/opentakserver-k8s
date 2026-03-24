@@ -32,3 +32,15 @@ spec:
       port: 8089
       targetPort: 8089
       nodePort: 30089
+    - name: rtmp
+      port: 1935
+      targetPort: 1935
+      nodePort: 31935
+    - name: rtsp
+      port: 8554
+      targetPort: 8554
+      nodePort: 30554
+    - name: webrtc
+      port: 8889
+      targetPort: 8889
+      nodePort: 30889
