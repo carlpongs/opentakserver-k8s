@@ -68,15 +68,18 @@ data:
         }
 
         # Proxy HLS video playback to MediaMTX
+        # MediaMTX serves HLS at /live/phone1/ (no /hls/ prefix)
+        # so we strip /hls/ and forward the rest
         location /hls/ {
-            proxy_pass http://127.0.0.1:8888/hls/;
+            proxy_pass http://127.0.0.1:8888/;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
         }
 
         # Proxy WebRTC video playback to MediaMTX
+        # MediaMTX serves WebRTC at /live/phone1/ (no /webrtc/ prefix)
         location /webrtc/ {
-            proxy_pass http://127.0.0.1:8889/webrtc/;
+            proxy_pass http://127.0.0.1:8889/;
             proxy_http_version 1.1;
             proxy_set_header Upgrade $http_upgrade;
             proxy_set_header Connection $connection_upgrade;
